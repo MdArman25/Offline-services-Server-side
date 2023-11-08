@@ -27,7 +27,24 @@ async function run() {
    const MyCollection= client.db("MyServicesDb").collection("Myservices")
 
    
-  
+ 
+app.get('/services',async(req,res)=>{
+    const body = await ServicesCollection.find().toArray();
+    // console.log(body);
+    res.send(body);
+});
+
+app.get('/services/:id',async(req, res) => {
+  const id = req.params.id;
+  const query = {
+    _id: new ObjectId(id),
+  };
+  const result = await ServicesCollection.findOne(query)
+  console.log(result);
+  res.send(result)
+    // // console.log(services);  
+  })
+
 
 
 

@@ -34,7 +34,26 @@ const client = new MongoClient(uri, {
   }
 });
 
+const logger = (req, res, next) => {
+  console.log('log: info', req.method, req.url);
+  next();
+}
 
+
+const verifyToken = (req, res, next) => {
+  const token = req?.cookies?.token;
+   
+  if (!token) {
+      return res.status(401).send({ message: 'unauthorized access' })
+  }
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+      if (err) {
+          return res.status(401).send({ message: 'unauthorized access' })
+      }
+      req.user = decoded;
+      next();
+  })
+}
 
 
 
@@ -46,6 +65,25 @@ async function run() {
 const dbBooking =client.db('serviceDb').collection('booking')
 
 
+app.post('/jwt',  async (req, res) => {
+  const user = req.body;
+  console.log('user token');
+  console.log('user for token', user);
+  const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' });
+
+  res.cookie('token', token, {
+      httpOnly: true,
+      secure: true,
+      // sameSite: 'none'
+  })
+      .send({ success: true });
+})
+
+app.post('/logout', async (req, res) => {
+  const user = req.body;
+  console.log('logging out', user);
+  res.clearCookie('token', { maxAge: 0 }).send({ success: true })
+})
 
 
     app.get('/services',async(req,res)=>{
@@ -112,9 +150,21 @@ const dbBooking =client.db('serviceDb').collection('booking')
             res.send(result);
         })
 
-    app.get('/booking',async(req,res)=>{
-        const body = await dbBooking.find().toArray();
-        res.send(body);
+    app.get('/myService', verifyToken,async(req,res)=>{
+      console.log('quary email', req.query.email);
+      console.log('token owner info', req.user)
+      if (req.user.email !== req.query.email) {
+          return res.status(403).send({ message: 'forbidden access' })
+      }
+      let query = {};
+      if (req.query?.email) {
+          query = { email: req.query.email }
+      }
+      const result = await ServicesCollection.find(query).toArray();
+      res.send(result);
+
+        // const body = await dbBooking.find().toArray();
+        // res.send(body);
       });
 
 

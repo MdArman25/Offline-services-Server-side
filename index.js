@@ -1,14 +1,29 @@
 const express = require('express');
 const cors = require('cors');
-const port = process.env.PORT || 5000;
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
+const port = process.env.PORT || 5000;
 require('dotenv').config()
 const app = express();
-app.use(cors())
+app.use(express.json())
+app.use(cors({
+  origin: [
+    'http://localhost:5173',
+    'https://service-sharing-applica/'
+    // 'https://cars-doctor-6c129.web.app',
+    // 'https://cars-doctor-6c129.firebaseapp.com'
+],
+credentials: true
+}))
 
-// console.log(process.env.DB_USE);
+app.use(cookieParser());
 
-const uri = `mongodb+srv://home_services_assignment:brNzopFhOCsRhf8Z@cluster0.ninjyyh.mongodb.net/?retryWrites=true&w=majority`;
+
+// console.log(process.env.DB_USER);
+// console.log(process.env.DB_PASS);
+
+const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ninjyyh.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -19,35 +34,109 @@ const client = new MongoClient(uri, {
   }
 });
 
+
+
+
+
+
+
 async function run() {
   try {
-    // Connect the client to the server	(optional starting in v4.7)
+ const ServicesCollection= client.db("serviceDb").collection("service");
+const dbBooking =client.db('serviceDb').collection('booking')
+
+
+
+
+    app.get('/services',async(req,res)=>{
+      const filter = req.query;
+      console.log(filter);
+      const query = {
+          // price: { $lt: 150, $gt: 50 
+   service_name: {$regex: filter.search, $options:'i'}
+      };
+      // console.log(query);
+
+      const body = await ServicesCollection.find().toArray();
+      // console.log(body);
+      res.send(body);
+      // console.log(ServicesCollection.find(query));
+      });
+      
+      app.get('/services/:id',async(req, res) => {
+      const id = req.params.id;
+      const query = {
+        _id: new ObjectId(id),
+      };
+      const result = await ServicesCollection.findOne(query)
+      // console.log(result);
+      res.send(result)
+      
+      // food request added
+      // app.post("/Booking", async (req, res) => {
+      //   const Food = req.body;
+      //   console.log( 'food ' ,Food);
+      //   const result = await dbBooking.insertOne(Food);
+      //   console.log(result);
+      //   res.send(result);
+      // });
+      
+        // // console.log(services);  
+      })
+
+//  app.get('/bookings', logger, verifyToken, async (req, res) => {
+//             console.log(req.query.email);
+//             console.log('token owner info', req.user)
+//             if (req.user.email !== req.query.email) {
+//                 return res.status(403).send({ message: 'forbidden access' })
+//             }
+//             let query = {};
+//             if (req.query?.email) {
+//                 query = { email: req.query.email }
+//             }
+//             const result = await bookingCollection.find(query).toArray();
+//             res.send(result);
+//         })
+
+ app.get('/AddServices',  async (req, res) => {
+            console.log(req.query.email);
+            console.log('token owner info', req.user)
+            if (req.user.email !== req.query.email) {
+                return res.status(403).send({ message: 'forbidden access' })
+            }
+            let query = {};
+            if (req.query?.email) {
+                query = { email: req.query.email }
+            }
+            const result = await ServicesCollection.find(query).toArray();
+            res.send(result);
+        })
+
+    app.get('/booking',async(req,res)=>{
+        const body = await dbBooking.find().toArray();
+        res.send(body);
+      });
+
+
+      app.post('/services',async(req,res)=>{
+        const body =req.body;
+        console.log(body);
+        const result= await ServicesCollection.insertOne(body);
+        console.log(result);
+        res.send(result)
+      })
+      app.post('/AddBooking',async(req,res)=>{
+        const body =req.body;
+        console.log(body);
+        const result= await dbBooking.insertOne(body);
+        console.log(result);
+        res.send(result)
+      })
+
+    
+    // Connect  the client to the server	(optional starting in v4.7)
     await client.connect();
-   const ServicesCollection= client.db("ServicesDb").collection("services")
-   const MyCollection= client.db("MyServicesDb").collection("Myservices")
-
-   
- 
-app.get('/services',async(req,res)=>{
-    const body = await ServicesCollection.find().toArray();
-    // console.log(body);
-    res.send(body);
-});
-
-app.get('/services/:id',async(req, res) => {
-  const id = req.params.id;
-  const query = {
-    _id: new ObjectId(id),
-  };
-  const result = await ServicesCollection.findOne(query)
-  console.log(result);
-  res.send(result)
-    // // console.log(services);  
-  })
-
-
-
-
+    // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
@@ -56,8 +145,6 @@ app.get('/services/:id',async(req, res) => {
   }
 }
 run().catch(console.dir);
-
-
 
 app.get('/',(req,res)=>{
     res.send('OFFLINE SERVICE SERVER IS rUNNING')
